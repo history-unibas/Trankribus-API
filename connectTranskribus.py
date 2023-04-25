@@ -11,6 +11,7 @@ import requests
 import xml.etree.ElementTree as et
 import time
 import logging
+import pandas as pd
 
 
 def get_sid(usr, pw):
@@ -33,6 +34,22 @@ def list_collections(sid):
         return r.json()
     else:
         logging.error(f'SessionID invalid? {r}')
+        raise
+
+
+def get_colid(col_name, sid):
+    '''Given the name of one collection and session id,
+    the function returns the corresponding collection id, if available.'''
+
+    # Get available collections
+    coll = pd.DataFrame(list_collections(sid))
+
+    try:
+        # Determine collection id of interest
+        return coll[coll['colName'] == col_name]['colId'].iloc[0]
+    except:
+        # Collection with name given not found
+        logging.error(f'No collection of name {col_name} found.')
         raise
 
 
@@ -102,4 +119,17 @@ def post_page_xml(page_xml, colid, docid, page_nr, sid, comment, status=''):
         return True
     else:
         logging.error(f'documentID or collectionID invalid? {r}')
+        raise
+
+
+def update_page_status(colid, docid, pagenr, transcriptid, status, sid, comment='Status changed.'):
+    '''Updates a transcript status of a specific page using the Transkribus API method updatePageStatus.'''
+    
+    r = requests.post(f'https://transkribus.eu/TrpServer/rest/collections/{colid}/{docid}/{pagenr}/{transcriptid}/status?JSESSIONID={sid}',
+                    params={'note': comment, 'status': status}
+                    )
+    if r.status_code == requests.codes.ok:
+        return True
+    else:
+        logging.error(f'collectionID, documentID, pageNr or transcriptId invalid? {r}')
         raise

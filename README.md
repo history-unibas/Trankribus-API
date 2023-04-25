@@ -17,7 +17,10 @@ This repository contains Python scripts for interacting with the Transkribus pla
 The script contains functions to interact with the REST API of Transkribus. Parts of this script are based on the github repository https://github.com/raykyn/TranskribusTagger.
 
 ## replaceCharacters.py
-This script searches in a fixed Transkribus collection selected special characters within transcribed text and replaces them with defined characters. Some documents within the collection where excluded.  
+This script searches in a fixed Transkribus collection selected special characters within transcribed text and replaces them with defined characters. Some documents within the collection where excluded.
+
+## changeStatus.py
+This script can be used to change the status of the last version of several selected Transkribus pages. These pages can be located in different collections. In our use case, we have set selected pages to a specific status to exclude these pages from transcription. 
 
 ## Contact
 For questions please contact jonas.aeby@unibas.ch.
