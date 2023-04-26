@@ -4,7 +4,7 @@
 
 """
 For a given Transkribus document, the script calculates the charactor error rate (CER) and word error rate (WER) comparing two Transkribus transcript versions.
-If provided, only selected Transkribus text region types are considered.
+If provided, only selected Transkribus text region types are considered. Furthermore, only reference transcript versionen of given status may be considered.
 
 In particular, the following CER and WER score are derived:
 - global CER and WER over all text regions in consideration
@@ -23,8 +23,9 @@ import re
 import pandas as pd
 import numpy as np
 from evaluate import load
-import matplotlib.pyplot as plt
 from csv import writer
+import matplotlib.pyplot as plt
+import seaborn as sns
 from connectTranskribus import *
 
 
@@ -111,8 +112,9 @@ if __name__ == "__main__":
     # Set output directory
     output_dir = '.'
     
-    # Define which textregion types should be considered. If the parameter does not exist, all textregion types will be analyzed.
-    textregion_types = ['header', 'paragraph']
+    # Define which textregion types should be considered. If parameter is an empty list, all textregion types will be analyzed.
+    # textregion_types = ['header', 'paragraph']
+    textregion_types = []
     
     # Set collection id
     colid = 163061  # HGB_Training
@@ -123,8 +125,14 @@ if __name__ == "__main__":
     # Set reference version of the Transkribus page ('latest' or part of Transkribus parameter toolName)
     reference_version = 'latest'
 
+    # Only consider a reference version of a specific status. Set the value to None if you do not want to filter by status. 
+    filter_status = ['GT']
+    
     # Set prediction version of the Transkribus page ('latest' or part of Transkribus parameter toolName)
     prediction_version = 'Model: 50719'
+
+    # Set bin width of histogram
+    hist_binwidth = 0.01
 
     # Define logging environment
     datetime_started = datetime.now()
@@ -133,6 +141,9 @@ if __name__ == "__main__":
     logging.basicConfig(filename=log_file, format='%(asctime)s   %(levelname)s   %(message)s',
                         level=logging.INFO, encoding='utf-8')
     logging.info('Script started.')
+
+    if filter_status:
+        logging.warning(f"Only pages with status {filter_status} will be considered.")
 
 
     ##
@@ -151,9 +162,11 @@ if __name__ == "__main__":
     textregions = pd.DataFrame(columns=['colid', 'docid', 'pageid', 'pagenr', 'tsid_reference', 'tsid_prediction', 'url_reference', 'url_prediction', 
                                         'textregionid', 'type', 'text_reference', 'text_prediction', 'is_valid', 'warning_message'])
     for page_nr in range(1, doc['md']['nrOfPages'] + 1):
+        # Get page parameters
         page = doc['pageList']['pages'][page_nr -1]
-        new_entry = {'colid': colid, 'docid': docid, 'pageid': page['pageId'], 'pagenr': page_nr}
-        new_entry['is_valid'] = True
+
+        # Initialize new entry
+        new_entry = {'colid': colid, 'docid': docid, 'pageid': page['pageId'], 'pagenr': page_nr, 'is_valid': True}
 
         # Determine reference version of page
         transcripts = page['tsList']['transcripts']
@@ -165,6 +178,10 @@ if __name__ == "__main__":
             textregions = pd.concat([textregions, pd.Series(new_entry).to_frame().T], ignore_index=True)
             continue
         reference_transcript = transcripts[reference_index]
+        if filter_status:
+            # Exclude page, when status is not in filter_status
+            if reference_transcript['status'] not in filter_status:
+                continue
         new_entry['tsid_reference'] = reference_transcript['tsId']
         new_entry['url_reference'] = reference_transcript['url']
 
@@ -210,6 +227,8 @@ if __name__ == "__main__":
             new_entry['textregionid'] = tr_id
             new_entry['type'] = reference_tr[1]
             new_entry['text_reference'] = reference_tr[2]
+            new_entry['warning_message'] = None
+            new_entry['is_valid'] = True
 
             # Check if text region is in prediction transcript available
             prediction_ids = [row[0] for row in prediction_textregions]
@@ -233,6 +252,7 @@ if __name__ == "__main__":
 
             # Add new entry
             textregions = pd.concat([textregions, pd.Series(new_entry).to_frame().T], ignore_index=True)
+    
     logging.info('Text regions of interest read.')
 
 
@@ -282,16 +302,16 @@ if __name__ == "__main__":
         wer_pages[group_name] = round(calculate_metric(predictions=texts_prediction, references=texts_reference, metric='wer'), 3)
     logging.info('CER and WER calcuated per Transkribus page.')
 
-    # Plot histograms for scores per Transkribus page
+    # Plot histograms for scores per Transkribus page with kernel density estimate
     cer_hist_dir = output_dir + '/cer_per_page.png'
-    plt.hist(cer_pages.values())
+    sns.histplot(list(cer_pages.values()), binwidth=hist_binwidth, kde=True)
     plt.title('CER per page')
     plt.savefig(cer_hist_dir)
     plt.clf()
     logging.info(f'Histogram for CER per page created: {cer_hist_dir}.')
 
     wer_hist_dir = output_dir + '/wer_per_page.png'
-    plt.hist(wer_pages.values())
+    sns.histplot(list(wer_pages.values()), binwidth=hist_binwidth, kde=True)
     plt.title('WER per page')
     plt.savefig(wer_hist_dir)
     logging.info(f'Histogram for WER per page created: {wer_hist_dir}.')
@@ -303,7 +323,11 @@ if __name__ == "__main__":
                                                                         metric='wer', is_valid=row['is_valid']), axis=1)
     logging.info('CER and WER calcuated per text region.')
 
+
+    ##
     # Export results
+    ##
+
     textregions_dir = output_dir + '/textregions.csv'
     textregions.to_csv(textregions_dir, index=False)
     logging.info(f'Table of text regions written: {textregions_dir}.')

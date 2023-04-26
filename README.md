@@ -20,7 +20,10 @@ The script contains functions to interact with the REST API of Transkribus. Part
 This script searches in a fixed Transkribus collection selected special characters within transcribed text and replaces them with defined characters. Some documents within the collection where excluded.
 
 ## changeStatus.py
-This script can be used to change the status of the last version of several selected Transkribus pages. These pages can be located in different collections. In our use case, we have set selected pages to a specific status to exclude these pages from transcription. 
+This script can be used to change the status of the last version of several selected Transkribus pages. These pages can be located in different collections. In our use case, we have set selected pages to a specific status to exclude these pages from transcription.
+
+## validateHtrModel.py
+Two transcription versions are analysed using this script. In our use case, a used transcript handwritten text recognition (HTR) model is validated with the gold standard (manual transcription). As comparative variables, the character error rate (CER) and word error rate (WER) are used.
 
 ## Contact
 For questions please contact jonas.aeby@unibas.ch.
