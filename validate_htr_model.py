@@ -1,6 +1,11 @@
-"""
-For a given Transkribus document, the script calculates the charactor error rate (CER) and word error rate (WER) comparing two Transkribus transcript versions.
-If provided, only selected Transkribus text region types are considered. Furthermore, only reference transcript versionen of given status may be considered.
+""" Validate a HTR model applied on the Transkribus platform.
+
+For a given Transkribus document, the script calculates the
+charactor error rate (CER) and word error rate (WER) comparing
+two Transkribus transcript versions.
+If provided, only selected Transkribus text region types are
+considered. Furthermore, only reference transcript versionen
+of given status may be considered.
 
 In particular, the following CER and WER score are derived:
 - global CER and WER over all text regions in consideration
@@ -14,7 +19,6 @@ https://huggingface.co/spaces/evaluate-metric/wer
 """
 
 
-from datetime import datetime
 import re
 import pandas as pd
 import numpy as np
@@ -29,7 +33,9 @@ from connect_transkribus import get_page_xml, get_sid, get_document_content
 
 
 def get_page_version_index(transcripts, version_keyword):
-    '''Given the Transkribus list of transcripts and a keyword of the page version, returns the corresponding transcripts index.'''
+    '''Get the index of a page version based on a keyword.
+    Given the Transkribus list of transcripts and a keyword of the
+    page version, returns the corresponding transcript index.'''
 
     if version_keyword == 'latest':
         return 0
@@ -40,15 +46,17 @@ def get_page_version_index(transcripts, version_keyword):
                 match = re.search(version_keyword, transcript['toolName'])
             except:
                 match = None
-            if match:
+            if match or transcript['status'] == version_keyword:
                 return index
             index += 1
         return None
 
 
 def get_textregions(url, sid, textregion_types=[]):
-    '''Given the url to a Transkribus page xml, the functions extracts the id, type (if availabel) and the textlines of textregions.
-    If the attribute textregion_types is provided in additional, only those text region types will be returned.'''
+    '''Given the url to a Transkribus page xml, the functions extracts the id,
+    type (if availabel) and the textlines of textregions.
+    If the attribute textregion_types is provided in additional,
+    only those text region types will be returned.'''
 
     page_xml = et.fromstring(get_page_xml(url, sid))
 
@@ -78,7 +86,8 @@ def get_textregions(url, sid, textregion_types=[]):
         # Get text region id
         id = textregion.get('id')
 
-        # Extract all text lines
+        # Extract all text lines. Skrip the last item corresponding to text of
+        # whole text region.
         textline = [item.text for item in unicode[:-1]]
         if not textline:
             # Skip empty textregions
@@ -103,7 +112,7 @@ def calculate_metric(predictions, references, metric, is_valid=True):
                                    references=references)
 
 
-if __name__ == "__main__":
+def main():
 
     ##
     # Set parameters
@@ -122,20 +131,27 @@ if __name__ == "__main__":
     # Set document id
     docid = 1369528  # HGB_Training_4
 
-    # Set reference version of the Transkribus page ('latest' or part of Transkribus parameter toolName)
+    # Define a keyword for reference version of the Transkribus page.
+    # Possibilities:
+    # - 'latest': the latest page version will be considered as reference.
+    # - <keyword_toolname>: a keyword string corresponding to part of the
+    # Transkribus toolName. The latest page version containing this keyword
+    # will be considered as reference.
+    # - <status>: a Transkribus status. The latest page version with this
+    # status will be considered as reference.
     reference_version = 'latest'
 
     # Only consider a reference version of a specific status. Set the value to None if you do not want to filter by status.
     filter_status = ['GT']
 
-    # Set prediction version of the Transkribus page ('latest' or part of Transkribus parameter toolName)
+    # Define a keyword for prediction version of the Transkribus page.
+    # The possibilities are the same than for the variable reference_version.
     prediction_version = 'Model: 50719'
 
     # Set bin width of histogram
     hist_binwidth = 0.01
 
     # Define logging environment
-    datetime_started = datetime.now()
     log_file = output_dir + '/validateHtrModel.log'
     print(f'Consider the logfile {log_file} for information about the run.')
     logging.basicConfig(filename=log_file, format='%(asctime)s   %(levelname)s   %(message)s',
@@ -355,3 +371,7 @@ if __name__ == "__main__":
     logging.info(f'WER per page written: {wer_pages_dir}.')
 
     logging.info('Script finished.')
+
+
+if __name__ == "__main__":
+    main()
