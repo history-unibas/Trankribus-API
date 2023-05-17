@@ -11,7 +11,7 @@ Change the status of the latest version of selected Transkribus pages given the 
 
 
 import pandas as pd
-from connectTranskribus import *
+from connect_transkribus import *
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ and replace them by other characters. A selected collection was considered.
 
 
 import re
-from connectTranskribus import *
+from connect_transkribus import *
 
 
 def contains_character(char, search_string):

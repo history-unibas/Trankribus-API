@@ -24,7 +24,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import xml.etree.ElementTree as et
 import logging
-from connectTranskribus import get_page_xml, get_sid, get_document_content
+
+from connect_transkribus import get_page_xml, get_sid, get_document_content
 
 
 def get_page_version_index(transcripts, version_keyword):
@@ -71,7 +72,7 @@ def get_textregions(url, sid, textregion_types=[]):
             # If no filter is provided, all textregions will be processed.
             pass
         elif type not in textregion_types:
-            # If filter is given, all not filtered textregion types will be scipped.
+            # If filter is given, all not filtered textregion types will be skipped.
             continue
 
         # Get text region id
@@ -165,7 +166,7 @@ if __name__ == "__main__":
                                         'is_valid', 'warning_message'])
     for page_nr in range(1, doc['md']['nrOfPages'] + 1):
         # Get page parameters
-        page = doc['pageList']['pages'][page_nr -1]
+        page = doc['pageList']['pages'][page_nr - 1]
 
         # Initialize new entry
         new_entry = {'colid': colid, 'docid': docid, 'pageid': page['pageId'],
