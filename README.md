@@ -22,8 +22,8 @@ This script searches in a fixed Transkribus collection selected special characte
 ## change_status.py
 This script can be used to change the status of the last version of several selected Transkribus pages. These pages can be located in different collections. In our use case, we have set selected pages to a specific status to exclude these pages from transcription.
 
-## validate_htr_model.py
-Two transcription versions are analysed using this script. In our use case, a used transcript handwritten text recognition (HTR) model is validated with the gold standard (manual transcription). As comparative variables, the character error rate (CER) and word error rate (WER) are used.
+## htr_model_validation.py
+Two transcription versions are analysed using this module. In our use case, a used transcript handwritten text recognition (HTR) model is validated with the gold standard (manual transcription). As comparative variables, the character error rate (CER) and word error rate (WER) are used.
 
 ## Contact
 For questions please contact jonas.aeby@unibas.ch.
