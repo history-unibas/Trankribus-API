@@ -35,16 +35,16 @@ from connect_transkribus import get_page_xml, get_sid, get_document_content
 # Set output directory.
 OUTPUT_DIR = '.'
 
+# Set collection id of collection to be considered.
+COLID = 163061  # HGB_Training
+
+# Set document id of documents to be considered.
+DOCID = [1434875]  # HGB_Training_11
+
 # Define which textregion types should be considered. If parameter is an
 # empty list, all textregion types will be analyzed.
 # Example: TEXTREGION_TYPES = ['header', 'paragraph']
 TEXTREGION_TYPES = ['header', 'paragraph']
-
-# Set collection id of collection to be considered.
-COLID = 163061  # HGB_Training
-
-# Set document id of document to be considered.
-DOCID = 1401077  # HGB_Training_10
 
 # Define a keyword for reference version of the Transkribus page.
 # Possibilities:
@@ -63,7 +63,7 @@ FILTER_STATUS = ['GT']
 
 # Define a keyword for prediction version of the Transkribus page.
 # The possibilities are the same than for the variable REFERENCE_VERSION.
-PREDICTION_VERSION = 'Model: 50719'
+PREDICTION_VERSION = 'Model: 52264'
 
 # Set the bin width of histogram.
 HIST_BINWIDTH = 0.01
@@ -208,166 +208,177 @@ def main():
     password = input('Transkribus password:')
     sid = get_sid(user, password)
 
-    # Get document metadata.
-    doc = get_document_content(COLID, DOCID, sid)
-
-    # Iterate over every document page.
+    # Iterate over every document.
     textregions = pd.DataFrame(columns=['colid', 'docid', 'pageid', 'pagenr',
                                         'tsid_reference', 'tsid_prediction',
                                         'url_reference', 'url_prediction',
                                         'textregionid', 'type',
                                         'text_reference', 'text_prediction',
                                         'is_valid', 'warning_message'])
-    for page_nr in range(1, doc['md']['nrOfPages'] + 1):
-        # Get page parameters.
-        page = doc['pageList']['pages'][page_nr - 1]
+    for docid in DOCID:
+        # Get document metadata.
+        doc = get_document_content(COLID, docid, sid)
+        logging.info('Processing text regions of document '
+                     f"{doc['md']['title']}...")
 
-        # Initialize new entry.
-        new_entry = {'colid': COLID, 'docid': DOCID, 'pageid': page['pageId'],
-                     'pagenr': page_nr, 'is_valid': True}
+        # Iterate over every document page.
+        for page_nr in range(1, doc['md']['nrOfPages'] + 1):
+            # Get page parameters.
+            page = doc['pageList']['pages'][page_nr - 1]
 
-        # Determine reference version of page.
-        transcripts = page['tsList']['transcripts']
-        reference_index = get_page_version_index(transcripts,
-                                                 REFERENCE_VERSION)
-        if reference_index is None:
-            logging.warning('No reference transcript version found for '
-                            f"tsId = {transcripts[reference_index]['tsId']}. "
-                            'This page will be excluded from the calculations.'
-                            )
-            new_entry['warning_message'] = 'No reference transcript version '\
-                'found.'
-            new_entry['is_valid'] = False
-            textregions = pd.concat([textregions,
-                                     pd.Series(new_entry).to_frame().T
-                                     ], ignore_index=True)
-            continue
-        reference_transcript = transcripts[reference_index]
-        if FILTER_STATUS:
-            # Exclude page, when status is not in FILTER_STATUS.
-            if reference_transcript['status'] not in FILTER_STATUS:
+            # Initialize new entry.
+            new_entry = {'colid': COLID, 'docid': docid,
+                         'pageid': page['pageId'],
+                         'pagenr': page_nr, 'is_valid': True}
+
+            # Determine reference version of page.
+            transcripts = page['tsList']['transcripts']
+            reference_index = get_page_version_index(transcripts,
+                                                     REFERENCE_VERSION)
+            if reference_index is None:
+                logging.warning('No reference transcript version found'
+                                f'using the keyword {REFERENCE_VERSION}. '
+                                'This page will be excluded from the '
+                                'calculations.'
+                                )
+                new_entry['warning_message'] = 'No reference transcript '\
+                    'version found.'
+                new_entry['is_valid'] = False
+                textregions = pd.concat([textregions,
+                                         pd.Series(new_entry).to_frame().T
+                                         ], ignore_index=True)
                 continue
-        new_entry['tsid_reference'] = reference_transcript['tsId']
-        new_entry['url_reference'] = reference_transcript['url']
+            reference_transcript = transcripts[reference_index]
+            if FILTER_STATUS:
+                # Exclude page, when status is not in FILTER_STATUS.
+                if reference_transcript['status'] not in FILTER_STATUS:
+                    continue
+            new_entry['tsid_reference'] = reference_transcript['tsId']
+            new_entry['url_reference'] = reference_transcript['url']
 
-        # Determine prediction version of page.
-        prediction_index = get_page_version_index(transcripts,
-                                                  PREDICTION_VERSION)
-        if prediction_index is None:
-            logging.warning('No prediction transcript version found for '
-                            f"tsId = {transcripts[prediction_index]['tsId']}. "
-                            'This page will be excluded from the calculations.'
-                            )
-            new_entry['warning_message'] = 'No prediction transcript version '\
-                                           'found.'
-            new_entry['is_valid'] = False
-            textregions = pd.concat([textregions,
-                                     pd.Series(new_entry).to_frame().T
-                                     ], ignore_index=True)
-            continue
-        prediction_transcript = transcripts[prediction_index]
-        new_entry['tsid_prediction'] = prediction_transcript['tsId']
-        new_entry['url_prediction'] = prediction_transcript['url']
-
-        # Exclude case, when page version of reference is equal to prediction.
-        if reference_index == prediction_index:
-            logging.warning('The reference and prediction transcript version '
-                            f"found are the same: index = {reference_index}, "
-                            f"tsId = {transcripts[reference_index]['tsId']}. "
-                            'This page will be excluded from the calculations.'
-                            )
-            new_entry['warning_message'] = 'Reference and prediction '\
-                                           'transcript are the same.'
-            new_entry['is_valid'] = False
-
-        # Get text regions of reference version of transcript.
-        reference_textregions = get_textregions(reference_transcript['url'],
-                                                sid, TEXTREGION_TYPES)
-        if not reference_textregions:
-            logging.warning('No non-empty textregions found for reference '
-                            'transcript. '
-                            f"tsId = {transcripts[reference_index]['tsId']}. "
-                            'This page will be excluded from the calculations.'
-                            )
-            new_entry['warning_message'] = 'No non-empty textregions '\
-                                           '(of selected types) found for '\
-                                           'reference transcript.'
-            new_entry['is_valid'] = False
-            textregions = pd.concat([textregions,
-                                     pd.Series(new_entry).to_frame().T
-                                     ], ignore_index=True)
-            continue
-
-        # Get text regions of prediction version of transcript.
-        prediction_textregions = get_textregions(prediction_transcript['url'],
-                                                 sid, TEXTREGION_TYPES)
-        if not prediction_textregions:
-            logging.warning('No non-empty textregions found for prediction '
-                            'transcript. '
-                            f"tsId = {transcripts[prediction_index]['tsId']}. "
-                            'This page will be excluded from the calculations.'
-                            )
-            new_entry['warning_message'] = 'No non-empty textregions '\
-                                           '(of selected types) found for '\
-                                           'prediction transcript.'
-            new_entry['is_valid'] = False
-            textregions = pd.concat([textregions,
-                                     pd.Series(new_entry).to_frame().T
-                                     ], ignore_index=True)
-            continue
-
-        # Iterate over text regions of reference transcript.
-        for reference_tr in reference_textregions:
-            tr_id = reference_tr[0]
-            new_entry['textregionid'] = tr_id
-            new_entry['type'] = reference_tr[1]
-            new_entry['text_reference'] = reference_tr[2]
-            new_entry['warning_message'] = None
-            new_entry['is_valid'] = True
-
-            # Check if text region is in prediction transcript available.
-            prediction_ids = [row[0] for row in prediction_textregions]
-            if tr_id in prediction_ids:
-                new_entry['text_prediction'] = prediction_textregions[
-                    prediction_ids.index(tr_id)][-1]
-            else:
-                logging.warning('No prediction transcript textregion found '
-                                f"for textregion id {tr_id}: tsId = "
-                                f"{transcripts[prediction_index]['tsId']}. "
-                                'This textregion will be excluded from the '
-                                'calculations.')
+            # Determine prediction version of page.
+            prediction_index = get_page_version_index(transcripts,
+                                                      PREDICTION_VERSION)
+            if prediction_index is None:
+                logging.warning('No prediction transcript version found. '
+                                f'using the keyword {PREDICTION_VERSION}. '
+                                'This page will be excluded from the '
+                                'calculations.'
+                                )
                 new_entry['warning_message'] = 'No prediction transcript '\
-                                               'found for this textregion.'
+                    'version found.'
                 new_entry['is_valid'] = False
-                new_entry['text_prediction'] = np.nan
+                textregions = pd.concat([textregions,
+                                         pd.Series(new_entry).to_frame().T
+                                         ], ignore_index=True)
+                continue
+            prediction_transcript = transcripts[prediction_index]
+            new_entry['tsid_prediction'] = prediction_transcript['tsId']
+            new_entry['url_prediction'] = prediction_transcript['url']
+
+            # Exclude case, when page version of reference is equal to
+            # prediction.
+            if reference_index == prediction_index:
+                logging.warning('The reference and prediction transcript '
+                                'version found are the same: index = '
+                                f'{reference_index}, tsId = '
+                                f"{transcripts[reference_index]['tsId']}. "
+                                'This page will be excluded from the '
+                                'calculations.'
+                                )
+                new_entry['warning_message'] = 'Reference and prediction '\
+                    'transcript are the same.'
+                new_entry['is_valid'] = False
+
+            # Get text regions of reference version of transcript.
+            reference_textregions = get_textregions(
+                reference_transcript['url'], sid, TEXTREGION_TYPES)
+            if not reference_textregions:
+                logging.warning('No non-empty textregions found for reference '
+                                'transcript. tsId = '
+                                f"{transcripts[reference_index]['tsId']}"
+                                '. This page will be excluded from the '
+                                'calculations.'
+                                )
+                new_entry['warning_message'] = 'No non-empty textregions '\
+                    '(of selected types) found for '\
+                    'reference transcript.'
+                new_entry['is_valid'] = False
                 textregions = pd.concat([textregions,
                                          pd.Series(new_entry).to_frame().T
                                          ], ignore_index=True)
                 continue
 
-            # Handling reference and perdiction of different length.
-            if len(new_entry['text_reference']) != len(new_entry[
-                    'text_prediction']):
-                logging.warning(f"Prediction transcript of textregion {tr_id} "
-                                'do not have the same number of lines than '
-                                'reference transcript. '
-                                'tsId (prediction transcript) = '
+            # Get text regions of prediction version of transcript.
+            prediction_textregions = get_textregions(
+                prediction_transcript['url'], sid, TEXTREGION_TYPES)
+            if not prediction_textregions:
+                logging.warning('No non-empty textregions found for prediction'
+                                ' transcript. tsId = '
                                 f"{transcripts[prediction_index]['tsId']}. "
-                                'This textregion will be excluded from the '
-                                'calculations.')
-                new_entry['warning_message'] = 'Prediction and reference '\
-                                               'transcript do not have same '\
-                                               'length.'
+                                'This page will be excluded from the '
+                                'calculations.'
+                                )
+                new_entry['warning_message'] = 'No non-empty textregions '\
+                    '(of selected types) found for '\
+                    'prediction transcript.'
                 new_entry['is_valid'] = False
                 textregions = pd.concat([textregions,
                                          pd.Series(new_entry).to_frame().T
                                          ], ignore_index=True)
                 continue
 
-            # Add new entry
-            textregions = pd.concat([textregions,
-                                     pd.Series(new_entry).to_frame().T
-                                     ], ignore_index=True)
+            # Iterate over text regions of reference transcript.
+            for reference_tr in reference_textregions:
+                tr_id = reference_tr[0]
+                new_entry['textregionid'] = tr_id
+                new_entry['type'] = reference_tr[1]
+                new_entry['text_reference'] = reference_tr[2]
+                new_entry['warning_message'] = None
+                new_entry['is_valid'] = True
+
+                # Check if text region is in prediction transcript available.
+                prediction_ids = [row[0] for row in prediction_textregions]
+                if tr_id in prediction_ids:
+                    new_entry['text_prediction'] = prediction_textregions[
+                        prediction_ids.index(tr_id)][-1]
+                else:
+                    logging.warning('No prediction transcript textregion found'
+                                    f' for textregion id {tr_id}: tsId = '
+                                    f"{transcripts[prediction_index]['tsId']}."
+                                    ' This textregion will be excluded from '
+                                    'the calculations.')
+                    new_entry['warning_message'] = 'No prediction transcript '\
+                        'found for this textregion.'
+                    new_entry['is_valid'] = False
+                    new_entry['text_prediction'] = np.nan
+                    textregions = pd.concat([textregions,
+                                             pd.Series(new_entry).to_frame().T
+                                             ], ignore_index=True)
+                    continue
+
+                # Handling reference and perdiction of different length.
+                if len(new_entry['text_reference']) != len(new_entry[
+                        'text_prediction']):
+                    logging.warning('Prediction transcript of textregion '
+                                    f'{tr_id} do not have the same number of '
+                                    'lines than reference transcript. '
+                                    'tsId (prediction transcript) = '
+                                    f"{transcripts[prediction_index]['tsId']}."
+                                    ' This textregion will be excluded from '
+                                    'the calculations.')
+                    new_entry['warning_message'] = 'Prediction and reference '\
+                        'transcript do not have same length.'
+                    new_entry['is_valid'] = False
+                    textregions = pd.concat([textregions,
+                                             pd.Series(new_entry).to_frame().T
+                                             ], ignore_index=True)
+                    continue
+
+                # Add new entry
+                textregions = pd.concat([textregions,
+                                         pd.Series(new_entry).to_frame().T
+                                         ], ignore_index=True)
 
     logging.info(f'{len(textregions)} text regions of interest read.')
 
@@ -382,10 +393,10 @@ def main():
     # Calculate the global CER and WER over all text regions in consideration.
     texts_reference = []
     texts_prediction = []
-    for index, row in textregions.iterrows():
-        if row['is_valid']:
-            texts_reference.extend(row['text_reference'])
-            texts_prediction.extend(row['text_prediction'])
+    for row in textregions.iterrows():
+        if row[1]['is_valid']:
+            texts_reference.extend(row[1]['text_reference'])
+            texts_prediction.extend(row[1]['text_prediction'])
     global_cer = round(calculate_metric(predictions=texts_prediction,
                                         references=texts_reference,
                                         metric='cer'), 3)
@@ -400,10 +411,10 @@ def main():
     for group_name, df_group in textregions_groups:
         texts_reference = []
         texts_prediction = []
-        for index, row in df_group.iterrows():
-            if row['is_valid']:
-                texts_reference.extend(row['text_reference'])
-                texts_prediction.extend(row['text_prediction'])
+        for row in df_group.iterrows():
+            if row[1]['is_valid']:
+                texts_reference.extend(row[1]['text_reference'])
+                texts_prediction.extend(row[1]['text_prediction'])
         tr_type_cer = round(calculate_metric(predictions=texts_prediction,
                                              references=texts_reference,
                                              metric='cer'), 3)
@@ -420,10 +431,10 @@ def main():
     for group_name, df_group in textregions_groups:
         texts_reference = []
         texts_prediction = []
-        for index, row in df_group.iterrows():
-            if row['is_valid']:
-                texts_reference.extend(row['text_reference'])
-                texts_prediction.extend(row['text_prediction'])
+        for row in df_group.iterrows():
+            if row[1]['is_valid']:
+                texts_reference.extend(row[1]['text_reference'])
+                texts_prediction.extend(row[1]['text_prediction'])
 
         # Exclude empty pages.
         if texts_prediction == [] or texts_prediction == []:
