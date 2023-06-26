@@ -160,81 +160,41 @@ def get_job_status(jobid, sid):
 
 
 def run_layout_analysis(
+        xml,
         colid,
-        docid,
-        pageid,
-        model_id,
-        model_name,
         sid,
-        min_area=0.01,
-        rectify_regions='false',
-        enrich_existing_transcriptions='true',
-        label_regions='false',
-        label_lines='false',
-        label_words='false',
-        keep_existing_regions='false',
         do_block_seg='false',
         do_line_seg='true',
         do_word_seg='false',
-        do_polygon_to_baseline='false',
-        do_baseline_to_polygon='false',
-        job_impl='TranskribusLaJob'):
+        job_impl='TranskribusLaJob',
+        do_create_job_batch='false'):
     """Run a layout analysis on Transkribus platform.
     This function start a layout analysis for selected pages within a document
     using the Transkribus API. If the job created is completed, the function
-    returns the request text.
+    returns.
+    The structure and content of the xml can be obtained using the Transkribus Expert Client:
+    - Start the Transkribus Expert Client via command line.
+    - Execute a desired layout analysis with the Transkribus Expert Client.
+    - Search the command line for the corresponding POST request.
 
     Args:
+        xml(str): Xml containing the job parameters.
         colid (int): Id of collection.
-        docid (int): Id of document.
-        pageid (list of int): Ids of pages to process.
-        model_id (int): Id of layout analysis model.
-        model_name (str): Name of layout analysis model.
         sid (str): Session id to Transkribus platform.
-        min_area (float): Minimal area for new layouts (regions).
-        rectify_regions (str): Should regions be rectified?
-        enrich_existing_transcriptions (str): Should existing
-            transcriptions be enriched?
-        label_regions (str): Should regions be labelled?
-        label_lines (str): Should lines be labelled?
-        label_words (str): Should words be labelled?
-        keep_existing_regions (str): Sould existing regions be kept?
         do_block_seg (str): Should block segmentation be done?
         do_line_seg (str): Should line segmentation be done?
         do_word_seg (str): Should word segmentation be done?
-        do_polygon_to_baseline (str): Should polygon to baseline be done?
-        do_baseline_to_polygon (str): Should baseline to polygon be done?
         job_impl (str): Name of layout analysis method.
+        do_create_job_batch (str): Should a job batch be created?
 
     Returns:
-        str: Text of request return.
+        None.
 
     Raises:
         Request status code is not OK.
     """
 
-    # Generate a string which concatenates all page ids in xml form.
-    pageid_str = ''
-    for p in pageid:
-        pageid_str += f'<pages><pageId>{p}</pageId></pages>'
-
     # Start the layout analysis.
-    xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'\
-          f'<jobParameters><docList><docs><docId>{docid}</docId>'\
-          f'<pageList>{pageid_str}</pageList></docs></docList><params>'\
-          f'<entry><key>modelId</key><value>{model_id}</value></entry>'\
-          f'<entry><key>modelName</key><value>{model_name}</value></entry>'\
-          f'<entry><key>--min_area</key><value>{min_area}</value></entry>'\
-          f'<entry><key>--rectify_regions</key><value>{rectify_regions}'\
-          '</value></entry>'\
-          '<entry><key>enrichExistingTranscriptions</key>'\
-          f'<value>{enrich_existing_transcriptions}</value></entry>'\
-          f'<entry><key>labelRegions</key><value>{label_regions}</value>'\
-          '</entry>'\
-          f'<entry><key>labelLines</key><value>{label_lines}</value></entry>'\
-          f'<entry><key>labelWords</key><value>{label_words}</value></entry>'\
-          '<entry><key>keepExistingRegions</key><value>'\
-          f'{keep_existing_regions}</value></entry></params></jobParameters>'
     headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}
     r = requests.post('https://transkribus.eu/TrpServer/rest/LA',
                       headers=headers,
@@ -244,9 +204,8 @@ def run_layout_analysis(
                               'doBlockSeg': do_block_seg,
                               'doLineSeg': do_line_seg,
                               'doWordSeg': do_word_seg,
-                              'doPolygonToBaseline': do_polygon_to_baseline,
-                              'doBaselineToPolygon': do_baseline_to_polygon,
-                              'jobImpl': job_impl})
+                              'jobImpl': job_impl,
+                              'doCreateJobBatch': do_create_job_batch})
     if r.status_code != requests.codes.ok:
         logging.error(f'Layout analysis execution failed: {r}')
         raise
@@ -257,6 +216,84 @@ def run_layout_analysis(
         job_status = get_job_status(jobid, sid)
         if job_status == 'FINISHED':
             break
-        time.sleep(10)
+        time.sleep(5)
 
-    return r.text
+
+def run_text_recognition(colid, docid, pages,
+                         model_id,
+                         sid,
+                         language_model='trainDataLanguageModel',
+                         do_line_polygon_simplification='true',
+                         keep_original_line_polygons='false',
+                         write_kws_index='false',
+                         n_best=1,
+                         use_existing_line_polygons='false',
+                         batch_size=10,
+                         clear_lines='true',
+                         do_word_seg='true',
+                         do_not_delete_work_dir='false',
+                         b2p_backend='Legacy'):
+    """Run a text recognition job on the Transkribus platform.
+    This function start a text recognition for selected pages within a document
+    using the Transkribus API. If the job created is completed, the function
+    returns.
+    For separator for page number string (argument pages), use e.g. %2C for the
+    comma separator and %2D for separator "-".
+
+    Args:
+        colid (int): Id of collection.
+        docid (int):  Id of document.
+        pages (str): String of page numbers to consider in ASCII encoding.
+        sid (str): Session id to Transkribus platform.
+        language_model (str): Language dictionary of the model.
+        do_line_polygon_simplification (str): Sould line polygon
+            simplification be done?
+        keep_original_line_polygons (str): Sould original line polygons be
+            kept?
+        write_kws_index (str): Sould kws index be written?
+        n_best (int): Number of best.
+        use_existing_line_polygons (str): Sould existing line polygons be used?
+        batch_size (int): Size of the batch.
+        clear_lines (str): Sould the lines be cleared?
+        do_word_seg (str): Sould word segmentation be done?
+        do_not_delete_work_dir (str): Sould the working directory not be
+            deleted?
+        b2p_backend (str): B2p backend.
+
+    Returns:
+        None.
+
+    Raises:
+        Request status code is not OK.
+    """
+    r = requests.post(f'https://transkribus.eu/TrpServer/rest/pylaia/{colid}/'
+                      f'{model_id}/recognition'
+                      f'?JSESSIONID={sid}'
+                      f'&languageModel={language_model}'
+                      f'&id={docid}'
+                      f'&pages={pages}'
+                      '&doLinePolygonSimplification='
+                      f'{do_line_polygon_simplification}'
+                      '&keepOriginalLinePolygons='
+                      f'{keep_original_line_polygons}'
+                      f'&writeKwsIndex={write_kws_index}'
+                      f'&nBest={n_best}'
+                      f'&useExistingLinePolygons={use_existing_line_polygons}'
+                      f'&batchSize={batch_size}'
+                      f'&clearLines={clear_lines}'
+                      f'&doWordSeg={do_word_seg}'
+                      f'&doNotDeleteWorkDir={do_not_delete_work_dir}'
+                      f'&b2pBackend={b2p_backend}'
+                      )
+
+    if r.status_code != requests.codes.ok:
+        logging.error(f'Text recognition execution failed: {r}')
+        raise
+
+    # Wait until the job is completed.
+    jobid = r.text
+    while True:
+        job_status = get_job_status(jobid, sid)
+        if job_status == 'FINISHED':
+            break
+        time.sleep(5)
