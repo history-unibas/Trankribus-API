@@ -25,5 +25,8 @@ This script can be used to change the status of the last version of several sele
 ## htr_model_validation.py
 Two transcription versions are analysed using this module. In our use case, a used transcript handwritten text recognition (HTR) model is validated with the gold standard (manual transcription). As comparative variables, the character error rate (CER) and word error rate (WER) are used.
 
+## collection_transcription.py
+With this module, layout analysis and text recognition can be performed on multiple documents belonging to different collections.
+
 ## Contact
 For questions please contact jonas.aeby@unibas.ch.
