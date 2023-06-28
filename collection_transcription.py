@@ -43,7 +43,7 @@ PAGE_DROP_NR = [1, 2]
 P2PALA_ID = 57774
 P2PALA_NAME = 'HGB_M3'
 MIN_AREA = 0.01
-RECTIFY_REGIONS = 'false'
+RECTIFY_REGIONS = 'true'
 ENRICH_EXISTING_TRANSCRIPTIONS = 'false'
 LABEL_REGIONS = 'false'
 LABEL_LINES = 'false'
@@ -52,10 +52,10 @@ KEEP_EXISTING_REGIONS = 'false'
 
 # Set the parameters for line finder layout analysis.
 LINEFINDER_ID = 49271
-LINEFINDER_NAME = 'Horizontal Text Line Orientation [Transkribus Team]'
-MIN_PATH_LENGTH = 40
+LINEFINDER_NAME = 'Default Homogeneous'
+MIN_PATH_LENGTH = 25
 BIN_THRESH = 55
-SEP_THRESH = 125
+SEP_THRESH = -1
 MAX_DIST_FRACTION = 0.01
 CLUSTERING_METHOD = 'legacy'
 CLUSTERING_LEGACY_TYPE = 'default'
@@ -64,7 +64,8 @@ SCALE = 1.0
 LINE_OVERLAP_FRACTION = 0.1
 
 # Set the parameter for text recognition.
-HTR_ID = 52687
+HTR_ID = 52861  # HGB_FT_M5.2
+BATCH_SIZE = 100
 DO_WORD_SEG = 'false'
 
 
@@ -84,13 +85,11 @@ def main():
 
     # Define all collections to be processed.
     coll_raw = pd.DataFrame(list_collections(sid))
-    # coll = coll_raw[~coll_raw['colId'].isin(COLL_DROP)]  # TODO: for testing
-    coll = coll_raw[coll_raw['colId'].isin([169494])]  # TODO: for testing
+    coll = coll_raw[~coll_raw['colId'].isin(COLL_DROP)]
 
     # Load document ids to be processed.
     with open(DOC_FILTER_DIR, 'r') as csvfile:
         doc_filter = [int(row[0]) for row in csv.reader(csvfile)]
-    doc_filter = [1483544]  # TODO: for testing
 
     for row in coll.iterrows():
         logging.info(f"Processing collection {row[1]['colName']}...")
@@ -201,6 +200,7 @@ def main():
                 pages=pages_url_str,
                 model_id=HTR_ID,
                 sid=sid,
+                batch_size=BATCH_SIZE,
                 do_word_seg=DO_WORD_SEG
                 )
 
