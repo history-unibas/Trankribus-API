@@ -39,7 +39,7 @@ OUTPUT_DIR = '.'
 COLID = 163061  # HGB_Training
 
 # Set document id of documents to be considered.
-DOCID = [1434875]  # HGB_Training_11
+DOCID = [1369528, 1434875]  # HGB_Training_4 and HGB_Training_11
 
 # Define which textregion types should be considered. If parameter is an
 # empty list, all textregion types will be analyzed.
@@ -59,7 +59,7 @@ REFERENCE_VERSION = 'latest'
 # Only consider a reference version of a specific status. Set the value to
 # None if you do not want to filter by status.
 # Example: FILTER_STATUS = ['GT']
-FILTER_STATUS = ['GT']
+FILTER_STATUS = None
 
 # Define a keyword for prediction version of the Transkribus page.
 # The possibilities are the same than for the variable REFERENCE_VERSION.
@@ -114,20 +114,20 @@ def get_textregions(url, sid, textregion_types=[]):
         textregion_types (list): List of Strings to filter textregion types.
 
     Returns:
-        list: List containing id, type and textlines of all non-empty
-        textregions.
+        list: List containing id (str), type (str) and textlines (list) of all
+        non-empty textregions.
     """
 
     page_xml = et.fromstring(get_page_xml(url, sid))
     textregions = []
+    textline_element = './/{http://schema.primaresearch.org/PAGE'\
+                       '/gts/pagecontent/2013-07-15}TextLine'
+    unicode_element = './/{http://schema.primaresearch.org/'\
+                      'PAGE/gts/pagecontent/2013-07-15}Unicode'
 
     # Iterate over the text regions.
     for textregion in page_xml.iter('{http://schema.primaresearch.org/PAGE'
                                     '/gts/pagecontent/2013-07-15}TextRegion'):
-        # Find all unicode tag childs.
-        unicode = textregion.findall('.//{http://schema.primaresearch.org/PAGE'
-                                     '/gts/pagecontent/2013-07-15}Unicode')
-
         # Get the custom parameter.
         custom = textregion.get('custom')
 
@@ -150,15 +150,22 @@ def get_textregions(url, sid, textregion_types=[]):
         # Get the text region id.
         id = textregion.get('id')
 
-        # Extract all text lines. Skrip the last item corresponding to text of
-        # whole text region.
-        textline = [item.text for item in unicode[:-1]]
-        if not textline:
+        # Iterate over the text lines.
+        textline_list = []
+        for textline in textregion.findall(textline_element):
+            # Find all unicode tag childs.
+            unicode = textline.findall(unicode_element)
+
+            # Take only the last entry found. If word chunks are available in
+            # the page xml, those unicode chunks will be excluded.
+            textline_list.append(unicode[-1].text)
+
+        if not textline_list:
             # Skip empty textregions.
             continue
 
         # Add received textregion to list.
-        textregions.append([id, type, textline])
+        textregions.append([id, type, textline_list])
 
     return textregions
 
@@ -239,8 +246,7 @@ def main():
                 logging.warning('No reference transcript version found'
                                 f'using the keyword {REFERENCE_VERSION}. '
                                 'This page will be excluded from the '
-                                'calculations.'
-                                )
+                                'calculations.')
                 new_entry['warning_message'] = 'No reference transcript '\
                     'version found.'
                 new_entry['is_valid'] = False
@@ -263,8 +269,7 @@ def main():
                 logging.warning('No prediction transcript version found. '
                                 f'using the keyword {PREDICTION_VERSION}. '
                                 'This page will be excluded from the '
-                                'calculations.'
-                                )
+                                'calculations.')
                 new_entry['warning_message'] = 'No prediction transcript '\
                     'version found.'
                 new_entry['is_valid'] = False
@@ -284,11 +289,14 @@ def main():
                                 f'{reference_index}, tsId = '
                                 f"{transcripts[reference_index]['tsId']}. "
                                 'This page will be excluded from the '
-                                'calculations.'
-                                )
+                                'calculations.')
                 new_entry['warning_message'] = 'Reference and prediction '\
                     'transcript are the same.'
                 new_entry['is_valid'] = False
+                textregions = pd.concat([textregions,
+                                         pd.Series(new_entry).to_frame().T
+                                         ], ignore_index=True)
+                continue
 
             # Get text regions of reference version of transcript.
             reference_textregions = get_textregions(
@@ -298,8 +306,7 @@ def main():
                                 'transcript. tsId = '
                                 f"{transcripts[reference_index]['tsId']}"
                                 '. This page will be excluded from the '
-                                'calculations.'
-                                )
+                                'calculations.')
                 new_entry['warning_message'] = 'No non-empty textregions '\
                     '(of selected types) found for '\
                     'reference transcript.'
@@ -317,8 +324,7 @@ def main():
                                 ' transcript. tsId = '
                                 f"{transcripts[prediction_index]['tsId']}. "
                                 'This page will be excluded from the '
-                                'calculations.'
-                                )
+                                'calculations.')
                 new_entry['warning_message'] = 'No non-empty textregions '\
                     '(of selected types) found for '\
                     'prediction transcript.'
