@@ -237,13 +237,11 @@ def run_text_recognition(colid, docid, pages,
     This function start a text recognition for selected pages within a document
     using the Transkribus API. If the job created is completed, the function
     returns.
-    For separator for page number string (argument pages), use e.g. %2C for the
-    comma separator and %2D for separator "-".
 
     Args:
         colid (int): Id of collection.
         docid (int):  Id of document.
-        pages (str): String of page numbers to consider in ASCII encoding.
+        pages (str): String of page numbers to consider.
         sid (str): Session id to Transkribus platform.
         language_model (str): Language dictionary of the model.
         do_line_polygon_simplification (str): Sould line polygon
@@ -266,28 +264,28 @@ def run_text_recognition(colid, docid, pages,
     Raises:
         Request status code is not OK.
     """
+    params = {'JSESSIONID': sid,
+              'languageModel': language_model,
+              'id': docid,
+              'pages': pages,
+              'doLinePolygonSimplification': do_line_polygon_simplification,
+              'keepOriginalLinePolygons': keep_original_line_polygons,
+              'writeKwsIndex': write_kws_index,
+              'nBest': n_best,
+              'useExistingLinePolygons': use_existing_line_polygons,
+              'batchSize': batch_size,
+              'clearLines': clear_lines,
+              'doWordSeg': do_word_seg,
+              'doNotDeleteWorkDir': do_not_delete_work_dir,
+              'b2pBackend': b2p_backend
+              }
     r = requests.post(f'https://transkribus.eu/TrpServer/rest/pylaia/{colid}/'
-                      f'{model_id}/recognition'
-                      f'?JSESSIONID={sid}'
-                      f'&languageModel={language_model}'
-                      f'&id={docid}'
-                      f'&pages={pages}'
-                      '&doLinePolygonSimplification='
-                      f'{do_line_polygon_simplification}'
-                      '&keepOriginalLinePolygons='
-                      f'{keep_original_line_polygons}'
-                      f'&writeKwsIndex={write_kws_index}'
-                      f'&nBest={n_best}'
-                      f'&useExistingLinePolygons={use_existing_line_polygons}'
-                      f'&batchSize={batch_size}'
-                      f'&clearLines={clear_lines}'
-                      f'&doWordSeg={do_word_seg}'
-                      f'&doNotDeleteWorkDir={do_not_delete_work_dir}'
-                      f'&b2pBackend={b2p_backend}'
+                      f'{model_id}/recognition',
+                      params=params
                       )
 
     if r.status_code != requests.codes.ok:
-        logging.error(f'Text recognition execution failed: {r}')
+        logging.error(f'Text recognition execution failed: {r}, {r.text}')
         raise
 
     # Wait until the job is completed.

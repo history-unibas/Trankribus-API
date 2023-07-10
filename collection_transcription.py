@@ -27,7 +27,7 @@ from connect_transkribus import (get_sid, list_collections,
 LOGFILE_DIR = './collection_transcription.log'
 
 # List of collection ids that are dropped within this process.
-COLL_DROP = [169494, 163061, 170320]
+COLL_DROP = [169494, 163061, 170320, 162299]
 
 # CSV file, which contains per line a docId of documents to be filtered.
 DOC_FILTER_DIR = './document_filter.csv'
@@ -65,7 +65,6 @@ LINE_OVERLAP_FRACTION = 0.1
 
 # Set the parameter for text recognition.
 HTR_ID = 52861  # HGB_FT_M5.2
-BATCH_SIZE = 100
 DO_WORD_SEG = 'false'
 
 
@@ -189,7 +188,7 @@ def main():
                 )
 
             # Create a string of selected pages for HTR request.
-            pages_url_str = '%2C'.join(
+            pages_str = ','.join(
                 [str(key) for key in page_nr_selected.keys()]
                 )
 
@@ -197,10 +196,9 @@ def main():
             run_text_recognition(
                 colid=row[1]['colId'],
                 docid=doc['docId'],
-                pages=pages_url_str,
+                pages=pages_str,
                 model_id=HTR_ID,
                 sid=sid,
-                batch_size=BATCH_SIZE,
                 do_word_seg=DO_WORD_SEG
                 )
 
