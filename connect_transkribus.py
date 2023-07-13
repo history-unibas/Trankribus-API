@@ -95,11 +95,19 @@ def get_page_xml(urlxml, sid, retry=False):
             return r.text
         elif r.status_code == 500:
             # Internal Server Error: try a second time
-            time.sleep(60)
-            return get_page_xml(urlxml, sid, retry=True)
+            if not retry:
+                time.sleep(60)
+                return get_page_xml(urlxml, sid, retry=True)
+            else:
+                logging.error(f'url invalid? {r}')
+                raise
         else:
-            logging.error(f'url invalid? {r}')
-            return None
+            if not retry:
+                time.sleep(60)
+                return get_page_xml(urlxml, sid, retry=True)
+            else:
+                logging.error(f'url invalid? {r}')
+                raise
     except requests.ConnectionError as err:
         # Retry once if the connection went lost
         if not retry:
