@@ -43,7 +43,6 @@ COLL_DROP = [169494, 163061, 170320]
 
 # CSV file, which contains per line a docId of documents to be filtered.
 DOC_FILTER_DIR = './document_filter.csv'
-DOC_FILTER_DIR = './document_filter_other.csv' # TODO
 
 # List of page status (of latest page version) that are dropped within this
 # process.
