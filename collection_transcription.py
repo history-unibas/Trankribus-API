@@ -6,6 +6,10 @@ platform for documents in different collections:
 2. Line finder: Text lines per text region are recognised.
 3. Text recognition (HTR): Text per text line is recognised.
 
+In addition, the presence of a transcription per page may be tested. More
+precisely, it is checked whether a version exists for each selected page that
+has a number greater than zero in the parameter nrOfCharsInLines.
+
 Each step is based on an existing model. The following functions are available:
 - Collections not to be considered can be excluded (COLL_DROP).
 - Only a set of documents can be considered (DOC_FILTER_DIR).
@@ -39,6 +43,7 @@ COLL_DROP = [169494, 163061, 170320]
 
 # CSV file, which contains per line a docId of documents to be filtered.
 DOC_FILTER_DIR = './document_filter.csv'
+DOC_FILTER_DIR = './document_filter_other.csv' # TODO
 
 # List of page status (of latest page version) that are dropped within this
 # process.
@@ -119,6 +124,17 @@ def main():
         logging.error(f'Your answer is not True or False: {do_htr}.')
         raise
     logging.info(f'HTR will be applied: {do_htr}.')
+
+    # Define if the presence of a transcription is to be tested.
+    do_test = input('Do you want to analyse presence of a transcription? ')
+    if do_test.lower() in ('true', 'yes', 'y', '1'):
+        do_test = True
+    elif do_test.lower() in ('false', 'no', 'n', '0'):
+        do_test = False
+    else:
+        logging.error(f'Your answer is not True or False: {do_test}.')
+        raise
+    logging.info(f'Test is being performed: {do_test}.')
 
     # Login to Transkribus.
     user = input('Transkribus user:')
@@ -260,6 +276,29 @@ def main():
                     sid=sid,
                     do_word_seg=DO_WORD_SEG
                     )
+
+            if do_test:
+                # Search for pages with no version with nrOfCharsInLines > 0.
+                doc_content = get_document_content(
+                    colid=row[1]['colId'], docid=doc['docId'], sid=sid
+                    )
+                doc_pages = doc_content['pageList']['pages']
+                for page_nr in page_nr_selected:
+                    n_char = 0
+                    ts = doc_pages[page_nr - 1]['tsList']['transcripts']
+                    for transcript in ts:
+                        n_char = transcript['nrOfCharsInLines']
+                        if n_char > 0:
+                            break
+                    if n_char == 0:
+                        logging.warning('The following page has no '
+                                        'transcription: '
+                                        f"collection {row[1]['colName']} "
+                                        f"({row[1]['colId']}), "
+                                        f"document {doc['title']} "
+                                        f"({doc['docId']}), "
+                                        f"page {page_nr} ({ts[0]['pageId']})."
+                                        )
 
             logging.info(f"Time to process document {doc['title']}: "
                          f'{round(time.time() - start_time, 2)}s. '
