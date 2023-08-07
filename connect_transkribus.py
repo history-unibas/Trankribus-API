@@ -145,12 +145,13 @@ def update_page_status(colid, docid, pagenr, transcriptid, status, sid, comment=
         raise
 
 
-def get_job_status(jobid, sid):
+def get_job_status(jobid: int, sid: str, n_retry: int = 60):
     """Query the status of a job.
 
     Args:
         jobid (int): Id of a Transkribus job.
         sid (str): Session id to Transkribus server.
+        n_retry (int): Number of maximal retries.
 
     Returns:
         str: Status of the job.
@@ -163,8 +164,13 @@ def get_job_status(jobid, sid):
     if r.status_code == requests.codes.ok:
         return re.search(r'"state":"[A-Z]+"', r.text).group()[9:-1]
     else:
-        logging.error(f'Job status cannot be retrieved: {r}')
-        raise
+        if n_retry > 0:
+            n_retry -= 1
+            time.sleep(60)
+            return get_job_status(jobid, sid, n_retry)
+        else:
+            logging.error(f'Job status cannot be retrieved: {r}, {r.text}')
+            raise
 
 
 def run_layout_analysis(
@@ -180,7 +186,8 @@ def run_layout_analysis(
     This function start a layout analysis for selected pages within a document
     using the Transkribus API. If the job created is completed, the function
     returns.
-    The structure and content of the xml can be obtained using the Transkribus Expert Client:
+    The structure and content of the xml can be obtained using the Transkribus 
+    Expert Client:
     - Start the Transkribus Expert Client via command line.
     - Execute a desired layout analysis with the Transkribus Expert Client.
     - Search the command line for the corresponding POST request.
@@ -224,7 +231,7 @@ def run_layout_analysis(
         job_status = get_job_status(jobid, sid)
         if job_status == 'FINISHED':
             break
-        time.sleep(5)
+        time.sleep(10)
 
 
 def run_text_recognition(colid, docid, pages,
@@ -297,9 +304,9 @@ def run_text_recognition(colid, docid, pages,
         raise
 
     # Wait until the job is completed.
-    jobid = r.text
+    jobid = int(r.text)
     while True:
         job_status = get_job_status(jobid, sid)
         if job_status == 'FINISHED':
             break
-        time.sleep(5)
+        time.sleep(10)
