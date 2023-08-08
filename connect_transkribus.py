@@ -85,7 +85,7 @@ def get_page_xml_url(doc_content, page_nr, page_version):
     return doc_content['pageList']['pages'][page_nr - 1]['tsList']['transcripts'][page_version]['url']
 
 
-def get_page_xml(urlxml, sid, retry=False):
+def get_page_xml(urlxml, sid, n_retry=60):
     # Get the page xml of a given document page
 
     try:
@@ -94,25 +94,28 @@ def get_page_xml(urlxml, sid, retry=False):
         if r.status_code == requests.codes.ok:
             return r.text
         elif r.status_code == 500:
-            # Internal Server Error: try a second time
-            if not retry:
+            # Internal Server Error: try again.
+            if n_retry > 0:
+                n_retry -= 1
                 time.sleep(60)
-                return get_page_xml(urlxml, sid, retry=True)
+                return get_page_xml(urlxml, sid, n_retry)
             else:
                 logging.error(f'url invalid? {r}')
                 raise
         else:
-            if not retry:
+            if n_retry > 0:
+                n_retry -= 1
                 time.sleep(60)
-                return get_page_xml(urlxml, sid, retry=True)
+                return get_page_xml(urlxml, sid, n_retry)
             else:
                 logging.error(f'url invalid? {r}')
                 raise
     except requests.ConnectionError as err:
-        # Retry once if the connection went lost
-        if not retry:
+        # Retry if the connection went lost.
+        if n_retry > 0:
+            n_retry -= 1
             time.sleep(60)
-            return get_page_xml(urlxml, sid, retry=True)
+            return get_page_xml(urlxml, sid, n_retry)
         else:
             logging.error(f'Connection error: {err}')
             raise
