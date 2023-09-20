@@ -258,7 +258,7 @@ def run_text_recognition(colid, docid, pages,
 
     Args:
         colid (int): Id of collection.
-        docid (int):  Id of document.
+        docid (int): Id of document.
         pages (str): String of page numbers to consider.
         sid (str): Session id to Transkribus platform.
         language_model (str): Language dictionary of the model.
@@ -313,3 +313,28 @@ def run_text_recognition(colid, docid, pages,
         if job_status == 'FINISHED':
             break
         time.sleep(10)
+
+
+def remove_transcript(colid, docid, pagenr, tskey, sid):
+    """Delete one selected transcript (page version) on Transkribus.
+    Args:
+        colid (int): Id of collection.
+        docid (int): Id of document.
+        pagenr (int): Page number.
+        tskey (str): Key of the transcript to be deleted.
+        sid (str): Session id to Transkribus platform.
+
+    Returns:
+        None.
+
+    Raises:
+        Request status code is not OK.
+    """
+    params = {'JSESSIONID': sid, 'key': tskey}
+    r = requests.post('https://transkribus.eu/TrpServer/rest/collections/'
+                      f'{colid}/{docid}/{pagenr}/delete',
+                      params=params
+                      )
+    if r.status_code != requests.codes.ok:
+        logging.error(f'Deleting of transcript failed: {r}')
+        raise
