@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-
 """
 Script to interact with the API of the Transkribus platform.
 """
@@ -338,3 +334,30 @@ def remove_transcript(colid, docid, pagenr, tskey, sid):
     if r.status_code != requests.codes.ok:
         logging.error(f'Deleting of transcript failed: {r}')
         raise
+
+
+def download_pagexml(url, path, n_retry=60):
+    """Download a pagexml file.
+
+    Args:
+        url (str): Url to a page xml file.
+        path (str): Target filepath to store the page xml file.
+        n_retry (int): Number of retries by request error.
+
+    Returns:
+        None.
+    """
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+
+        with open(path, "wb") as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+    except:
+        if n_retry > 0:
+            n_retry -= 1
+            time.sleep(60)
+            download_pagexml(url, path, n_retry)
+        else:
+            response.raise_for_status()

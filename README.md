@@ -16,6 +16,9 @@ This repository contains Python scripts for interacting with the Transkribus pla
 ## connect_transkribus.py
 The script contains functions to interact with the REST API of Transkribus. Parts of this script are based on the github repository https://github.com/raykyn/TranskribusTagger.
 
+## download_Latest_pagexml.py
+This script allows you to export the latest pagexmls of all Transkribus pages across multiple collections.
+
 ## replace_characters.py
 This script searches in a fixed Transkribus collection selected special characters within transcribed text and replaces them with defined characters. Some documents within the collection where excluded.
 
