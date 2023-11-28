@@ -9,6 +9,12 @@ according to the following structure:
 - Collections in the COLNAME_TRAINING list are saved in the target directory
 according to the following pattern:
 [collection_name]/[document_name]/[document_name]_[page_number]/[pagexml_filename]
+
+Special case collection 'HGB_Training':
+- PageXML from documents with the prefix 'TRAINING_VALIDATION_SET' are not
+exported.
+- If available, the latest pageXML version with status 'GT' (ground truth) is
+exported instead of the latest version with any status.
 """
 
 
@@ -41,11 +47,15 @@ def main():
 
     # Save pagexmls of all pages within collections of interest.
     for col in coll.iterrows():
-        if (col[1]['colName'] not in COLNAME_TRAINING and
-            not col[1]['colName'].startswith(COLNAME_PREFIX)):
+        if (col[1]['colName'] not in COLNAME_TRAINING
+            and not col[1]['colName'].startswith(COLNAME_PREFIX)):
             continue
         docs = list_documents(sid, col[1]['colId'])
         for doc in docs:
+            if (col[1]['colName'] == 'HGB_Training'
+                and doc['title'].startswith('TRAINING_VALIDATION_SET')):
+                # Skip selected documents within collection HGB_Training.
+                continue
             pages = get_document_content(col[1]['colId'], doc['docId'], sid)
 
             # Create destination folder.
@@ -56,7 +66,9 @@ def main():
             for page in pages['pageList']['pages']:
                 # Determine the latest transcript.
                 timestamp_latest = datetime.min
+                timestamp_latest_gt = datetime.min
                 index_latest = None
+                index_latest_gt = None
                 index = -1
                 for transcript in page['tsList']['transcripts']:
                     index += 1
@@ -66,6 +78,20 @@ def main():
                     timestamp_latest = max(timestamp_latest, timestamp)
                     if timestamp_latest == timestamp:
                         index_latest = index
+
+                    # For HGB_Training, determine the latest transcript basded
+                    # also by the status.
+                    if col[1]['colName'] == 'HGB_Training':
+                        if transcript['status'] == 'GT':
+                            timestamp_latest_gt = max(timestamp_latest_gt,
+                                                      timestamp
+                                                      )
+                            if timestamp_latest_gt == timestamp:
+                                index_latest_gt = index
+
+                if (index_latest_gt is not None
+                    and index_latest != index_latest_gt):
+                    index_latest = index_latest_gt
 
                 # Download pagexml of latest transcript.
                 url_latest = page['tsList']['transcripts'][index_latest]['url']
